@@ -1,67 +1,45 @@
+from django import forms
 from django.db import models
-from django.contrib.auth.models import AbstractBaseUser,BaseUserManager
+from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.utils import timezone
 from django.core.validators import RegexValidator
 
 
-
-phone_regex = RegexValidator(regex = r'^\+?1?\d{9-14}$',
-            message = 'Phone number up to 14 digits allowed')
-
-
 class UserManager(BaseUserManager):
-    def create_user(self, phone, password = None, is_active = False, is_admin = False):
+    def create_user(self, phone, password=None, **other_fields):
         if not phone:
-            raise ValueError('User must have a phone number')
-        if not password:
-            raise ValueError('User must have a password')
-
-        user_obj = self.model(
-            phone = phone
-        )
-        user_obj.set_password(password)
-        user_obj.admin = is_admin
-        user_obj.active = is_active
-        user_obj.save(using=self._db)
-        return user_obj
-
-    def create_superuser(self,phone,password=None):
-        user = self.create_user(
-            phone,
-            password=password,
-            is_admin = True,
-            is_active = True
-        )
-
+            raise ValueError("Mobile is required")
+        user = self.model(phone=phone, **other_fields)
+        user.set_password(password)
+        user.save()
         return user
 
-class User(AbstractBaseUser):
-    phone = models.CharField(validators = [phone_regex], max_length = 15,)
-    full_name = models.CharField(max_length = 60, blank =True, null = True)
-    first_login = models.BooleanField(default=False)
-    active   = models.BooleanField(default=False)
-    admin    = models.BooleanField(default = False)
-    timestamp = models.DateTimeField(auto_now_add = True)
+    def create_superuser(self, phone, password=None, **other_fields):
+        other_fields.setdefault('is_staff', True)
+        other_fields.setdefault('is_superuser', True)
+        other_fields.setdefault('is_active', True)
 
+        if other_fields.get('is_staff') is not True:
+            raise ValueError('is_staff in admin must True')
+        if other_fields.get('is_superuser') is not True:
+            raise ValueError('is_superuser in admin must True')
+        return self.create_user(phone, password, **other_fields)
 
-    USERNAME_FIELD = 'phone'
-    REQURED_FIELDS = []
+class User(AbstractUser):
+    # r'^[0][9]\d{9}$|^[1-9]\d{9}$'
+    # r'^\+?1?\d{11}$'
+    username = None
+    phone_regex = RegexValidator(regex = r'^[0][9]\d{9}$|^[1-9]\d{9}$',
+            message = 'Phone number up to 11 digits allowed start with 09')
+    phone = models.CharField(validators = [phone_regex], max_length = 11,unique=True)
+    token = models.CharField(max_length=64,blank=True, null=True)
+    token_expiration_date = models.DateTimeField(null=True)
+    salt = models.CharField(max_length=32, null=True)
 
     object = UserManager()
 
+    USERNAME_FIELD = 'phone'
 
-    def __str__(self):
-        return self.phone
+    REQUIRED_FIELDS = []
 
-    def get_full_name(self):
-        if self.full_name:
-            return self.full_name
-        else:
-            return self.phone
-
-    @property
-    def is_active(self):
-        return self.active
-
-    @property
-    def is_admin(self):
-        return self.admin
+    backend = 'accounts.custombackend.PhoneBackend'
