@@ -1,7 +1,6 @@
 from django import forms
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
-from django.utils import timezone
 from django.core.validators import RegexValidator
 
 
@@ -61,7 +60,7 @@ class Profile(models.Model):
     bio = models.TextField(max_length=300, null=True, blank=True)
     profile_image = models.ImageField(default='profile_pics/default.png', upload_to=file_path_dir)
     birthdate = models.DateTimeField(blank=True, null=True)
-    created_date = models.DateTimeField(blank=True, default=timezone.now)
+    created_date = models.DateTimeField(auto_now_add=True)
 
     PAID = 1
     TRIAL = 2
